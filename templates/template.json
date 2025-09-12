@@ -1,0 +1,30 @@
+{
+    "audio_url": "file:///C:/Users/CTH/Downloads/20220316-28-bd4bcafe-7269-48ac-854c-2ea6d0fd8c30.wav",
+    "last_used_annotation_id": 2,
+    "tiers": [
+        "speaker_1",
+        "speaker_2"
+    ],
+    "speaker_1": {
+        "id": "speaker_1",
+        "annotations": [
+            {
+                "id": "a1",
+                "start_time": "145850",
+                "end_time": "146930",
+                "value": "Hi"
+            }
+        ]
+    },
+    "speaker_2": {
+        "id": "speaker_2",
+        "annotations": [
+            {
+                "id": "a2",
+                "start_time": "143720",
+                "end_time": "144230",
+                "value": "Hello"
+            }
+        ]
+    }
+}

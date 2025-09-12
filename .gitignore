@@ -19,4 +19,5 @@ yarn-error.log
 logs/
 __pycache__/
 
-venv/
+venv/venv
+venv

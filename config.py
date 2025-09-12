@@ -1,0 +1,1 @@
+min_chunk_duration = 300 # milliseconds
