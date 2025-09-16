@@ -1,4 +1,7 @@
 import os
+import tempfile
+import librosa
+import soundfile as sf
 os.environ["SPEECHBRAIN_LOCAL_FILE_STRATEGY"] = "copy"
 
 from pyannote.audio import Pipeline
@@ -17,8 +20,40 @@ def diarize(audio_path):
     # Make sure to `huggingface-cli login` first or pass use_auth_token="YOUR_TOKEN"
     pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.0", use_auth_token=True)
 
-    # Apply diarization on the audio file
-    diarization = pipeline(audio_path)
+    # Check if the audio file can be loaded directly by soundfile
+    try:
+        # Try to load with soundfile first
+        sf.read(audio_path)
+        # If successful, use the original file
+        processed_audio_path = audio_path
+    except Exception as e:
+        print(f"Audio file format not supported by soundfile: {e}")
+        print("Converting audio file to compatible format...")
+        
+        # Load with librosa (more permissive) and save as proper WAV
+        try:
+            audio, sr = librosa.load(audio_path, sr=16000)
+            
+            # Create a temporary file with proper WAV format
+            temp_fd, temp_path = tempfile.mkstemp(suffix='.wav')
+            os.close(temp_fd)  # Close the file descriptor
+            
+            # Save as proper WAV file
+            sf.write(temp_path, audio, sr, format='WAV', subtype='PCM_16')
+            processed_audio_path = temp_path
+            print(f"Audio converted and saved to temporary file: {temp_path}")
+            
+        except Exception as e2:
+            print(f"Failed to convert audio file: {e2}")
+            raise e2
+
+    try:
+        # Apply diarization on the audio file
+        diarization = pipeline(processed_audio_path)
+    finally:
+        # Clean up temporary file if we created one
+        if processed_audio_path != audio_path and os.path.exists(processed_audio_path):
+            os.unlink(processed_audio_path)
 
     # Collect diarization results grouped by speaker
     speaker_data = {}

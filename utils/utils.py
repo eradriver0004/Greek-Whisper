@@ -1,5 +1,8 @@
 import json
 import xml.etree.ElementTree as ET
+import librosa
+import os
+import urllib.parse
 
 from torch.utils import data
 
@@ -380,6 +383,166 @@ def remove_short_annotations(data, min_chunk_duration):
         "affected_tiers": list(affected_tiers),
         "removed_annotation_ids": removed_annotation_ids
     }
+
+def audio2audio_chunk(audio_path, start_time, end_time):
+    """
+    Extract a chunk of audio from a given audio file.
+    
+    Args:
+        audio_path (str): Path to the audio file
+        start_time (int): Start time of the chunk in milliseconds
+        end_time (int): End time of the chunk in milliseconds
+    """
+    audio, sr = librosa.load(audio_path, sr=16000)
+    audio_chunk = audio[start_time:end_time]
+    return audio_chunk
+
+def file_url_to_path(file_url):
+    """
+    Convert a file URL to a real file path.
+    
+    Args:
+        file_url (str): File URL (e.g., "file:///C:/Users/CTH/Downloads/audio.wav" or "file:///data/test2.wav")
+        
+    Returns:
+        str: Real file path (e.g., "C:/Users/CTH/Downloads/audio.wav" or "data/test2.wav")
+        
+    Raises:
+        ValueError: If the URL is not a valid file URL
+        FileNotFoundError: If the file doesn't exist
+    """
+    # Parse the URL
+    parsed_url = urllib.parse.urlparse(file_url)
+    
+    # Check if it's a file URL
+    if parsed_url.scheme != 'file':
+        raise ValueError(f"Not a file URL: {file_url}")
+    
+    # Get the path from the URL
+    file_path = parsed_url.path
+    
+    # On Windows, remove the leading slash if present
+    if os.name == 'nt' and file_path.startswith('/') and len(file_path) > 1 and file_path[1] == ':':
+        file_path = file_path[1:]
+    
+    # Convert forward slashes to backslashes on Windows
+    if os.name == 'nt':
+        file_path = file_path.replace('/', '\\')
+    
+    # On Windows, if path starts with backslash but doesn't have drive letter, remove it
+    if os.name == 'nt' and file_path.startswith('\\') and len(file_path) > 1 and file_path[1] != ':':
+        file_path = file_path[1:]
+    
+    # Handle relative paths (like "data/test2.wav")
+    if not os.path.isabs(file_path):
+        # If it's a relative path, check if it exists relative to current working directory
+        if os.path.exists(file_path):
+            return os.path.abspath(file_path)
+        else:
+            # Try to find the file in common locations
+            possible_paths = [
+                file_path,  # Original path
+                os.path.join(os.getcwd(), file_path),  # Current working directory
+                os.path.join(os.path.dirname(os.getcwd()), file_path),  # Parent directory
+            ]
+            
+            for possible_path in possible_paths:
+                if os.path.exists(possible_path):
+                    return os.path.abspath(possible_path)
+
+    print(f"File path in utils.py: {file_path}")
+    
+    # Check if file exists
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    return file_path
+
+def path_to_file_url(file_path):
+    """
+    Convert a real file path to a file URL.
+    
+    Args:
+        file_path (str): Real file path (e.g., "C:/Users/CTH/Downloads/audio.wav")
+        
+    Returns:
+        str: File URL (e.g., "file:///C:/Users/CTH/Downloads/audio.wav")
+    """
+    # Convert to absolute path
+    abs_path = os.path.abspath(file_path)
+    
+    # Convert backslashes to forward slashes for URL
+    url_path = abs_path.replace('\\', '/')
+    
+    # Add file:// prefix
+    if os.name == 'nt':  # Windows
+        # On Windows, we need three slashes after file:
+        return f"file:///{url_path}"
+    else:  # Unix-like systems
+        # On Unix-like systems, we need two slashes after file:
+        return f"file://{url_path}"
+
+def normalize_file_path(file_path_or_url):
+    """
+    Normalize a file path or URL to a real file path.
+    
+    Args:
+        file_path_or_url (str): Either a file path or file URL
+        
+    Returns:
+        str: Real file path
+        
+    Raises:
+        ValueError: If the input is neither a valid file path nor file URL
+        FileNotFoundError: If the file doesn't exist
+    """
+    # Check if it's a URL
+    if file_path_or_url.startswith('file://'):
+        return file_url_to_path(file_path_or_url)
+    
+    # Check if it's a regular file path
+    if os.path.exists(file_path_or_url):
+        return os.path.abspath(file_path_or_url)
+    
+    # Try to convert relative path to absolute
+    abs_path = os.path.abspath(file_path_or_url)
+    if os.path.exists(abs_path):
+        return abs_path
+    
+    raise FileNotFoundError(f"File not found: {file_path_or_url}")
+
+def copy_file_to_data_dir(source_path_or_url, target_filename=None):
+    """
+    Copy a file from source (path or URL) to the data directory.
+    
+    Args:
+        source_path_or_url (str): Source file path or URL
+        target_filename (str, optional): Target filename. If None, uses original filename.
+        
+    Returns:
+        str: Path to the copied file in data directory
+    """
+    import shutil
+    
+    # Normalize the source path
+    source_path = normalize_file_path(source_path_or_url)
+    
+    # Get target filename
+    if target_filename is None:
+        target_filename = os.path.basename(source_path)
+    
+    # Ensure data directory exists
+    data_dir = "data"
+    os.makedirs(data_dir, exist_ok=True)
+    
+    # Create target path
+    target_path = os.path.join(data_dir, target_filename)
+    
+    # Copy the file
+    shutil.copy2(source_path, target_path)
+    
+    print(f"✓ File copied: {source_path} -> {target_path}")
+    return target_path
 
 if __name__ == "__main__":
     data = read_eaf("templates/test.eaf")

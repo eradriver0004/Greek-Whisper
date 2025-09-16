@@ -1,8 +1,27 @@
-pyannote.audio
-asteroid
-speechbrain
-torchaudio
-librosa
-whisper
-numpy
-torch
+# Core dependencies
+torch>=1.9.0
+torchaudio>=0.9.0
+librosa>=0.8.0
+numpy>=1.21.0
+
+# Whisper and transcription
+openai-whisper>=20230314
+
+# Speaker diarization
+pyannote.audio>=3.0.0
+pyannote.core>=5.0.0
+
+# Source separation
+asteroid>=0.6.0
+speechbrain>=0.5.0
+
+# Hugging Face datasets (for json2dataset functionality)
+datasets>=2.0.0
+
+# Optional: Transformers for tokenization
+transformers>=4.20.0
+
+# Optional: For advanced audio processing
+soundfile>=0.10.0
+scipy>=1.7.0
+pydub>=0.25.0

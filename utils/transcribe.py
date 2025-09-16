@@ -6,6 +6,8 @@ import torch
 import torchaudio
 from abc import ABC, abstractmethod
 
+import time
+
 # Import separation functionality
 try:
     from utils.separation import SpeakerSeparator, AudioProcessor
@@ -617,6 +619,7 @@ if __name__ == "__main__":
     
     # Example 1: Basic transcription
     print("\n1. Testing basic WhisperTranscriber...")
+    start_time = time.time()
     # transcriber = WhisperTranscriber(model_size="base", language="Greek")
     # result = transcriber.transcribe(audio_data)  # Would need actual audio data
     
@@ -628,6 +631,8 @@ if __name__ == "__main__":
         print("Diarization and transcription completed!")
     except FileNotFoundError:
         print("Test file 'data/test2.wav' not found. Please provide a valid audio file.")
+    end_time = time.time()
+    print(f"Diarization and transcription completed in {end_time - start_time} seconds")
     
     # Example 3: Complete pipeline with speaker separation
     # print("\n3. Testing TranscriptionPipeline with Asteroid separation...")
