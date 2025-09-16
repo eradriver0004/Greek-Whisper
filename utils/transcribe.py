@@ -106,9 +106,6 @@ class DiarizedTranscriber(BaseTranscriber):
         print("Loading audio file...")
         audio, sr = librosa.load(audio_path, sr=16000)  # Whisper expects 16kHz
         
-        # Load Whisper model
-        self.load_model()
-        
         # Transcribe each annotation segment and remove failed ones
         print("Transcribing segments...")
         annotations_to_remove = []

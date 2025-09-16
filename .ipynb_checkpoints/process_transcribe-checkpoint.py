@@ -149,13 +149,13 @@ def main():
         epilog="""
 Examples:
   # Basic transcription
-  python process_transcribe.py data/test.wav --model-size base --language Greek basic 
+  python process_transcribe.py basic data/test.wav --model-size base --language Greek
 
   # Diarized transcription
-  python process_transcribe.py data/test.wav --output data/test_output.json diarized 
+  python process_transcribe.py diarized data/test.wav --output data/test_output.json
 
   # Advanced transcription with detailed analysis
-  python process_transcribe.py data/test.wav --output data/detailed_output.eaf advanced 
+  python process_transcribe.py advanced data/test.wav --output data/detailed_output.eaf
         """
     )
     
