@@ -1,8 +1,0 @@
-pyannote.audio
-asteroid
-speechbrain
-torchaudio
-librosa
-whisper
-numpy
-torch

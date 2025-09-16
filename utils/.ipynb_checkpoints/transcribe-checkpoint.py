@@ -88,7 +88,7 @@ class DiarizedTranscriber(BaseTranscriber):
         """Transcribe audio data (basic implementation)."""
         return super().transcribe(audio_data)
     
-    def transcribe_file_with_diarization(self, audio_path):
+    def transcribe_file_with_diarization(self, audio_path, output_prefix=None):
         """
         Diarize audio file and transcribe each speaker segment individually.
         
@@ -184,15 +184,75 @@ class DiarizedTranscriber(BaseTranscriber):
                             pass
         diarization_data["last_used_annotation_id"] = max_id
         
+        # Save results
+        if output_prefix is None:
+            output_prefix = os.path.splitext(os.path.basename(audio_path))[0]
+        
+        json_path = f"data/{output_prefix}_transcribed.json"
+        eaf_path = f"data/{output_prefix}_transcribed.eaf"
+        
+        print(f"Saving results to {json_path} and {eaf_path}")
+        
+        try:
+            from utils.utils import write_json, write_eaf
+        except ImportError:
+            from utils import write_json, write_eaf
+        
+        write_json(diarization_data, json_path)
+        write_eaf(diarization_data, eaf_path)
+        
         return diarization_data
 
 
 class TranscriptionPipeline:
-    """Complete transcription pipeline (deprecated separation paths removed)."""
+    """Complete transcription pipeline with speaker separation."""
     
     def __init__(self, model_size="large", language=None):
         self.transcriber = DiarizedTranscriber(model_size, language)
-
+        self.separator = SpeakerSeparator()
+    
+    def transcribe_with_asteroid_separation(self, audio_path, num_speakers=2, output_prefix=None):
+        """
+        Complete pipeline: Separate speakers with Asteroid, diarize each, transcribe, and merge.
+        
+        Args:
+            audio_path (str): Path to the audio file
+            num_speakers (int): Number of speakers to separate (2 or 3)
+            output_prefix (str): Prefix for output files
+            
+        Returns:
+            dict: Merged annotation data with all speakers transcribed
+        """
+        print(f"Starting complete transcription pipeline for {num_speakers} speakers...")
+        
+        # Step 1: Separate speakers using Asteroid
+        separated_audios, sr = self.separator.separate_speakers_asteroid(audio_path, num_speakers)
+        
+        # Step 2: Diarize and transcribe each separated audio
+        speaker_results = self._diarize_and_transcribe_separated_audio(separated_audios, sr)
+        
+        # Step 3: Merge all speaker annotations
+        merged_data = self._merge_speaker_annotations(speaker_results, audio_path)
+        
+        # Save results
+        if output_prefix is None:
+            output_prefix = os.path.splitext(os.path.basename(audio_path))[0]
+        
+        json_path = f"data/{output_prefix}_asteroid_transcribed.json"
+        eaf_path = f"data/{output_prefix}_asteroid_transcribed.eaf"
+        
+        print(f"Saving results to {json_path} and {eaf_path}")
+        
+        try:
+            from utils.utils import write_json, write_eaf
+        except ImportError:
+            from utils import write_json, write_eaf
+        
+        write_json(merged_data, json_path)
+        write_eaf(merged_data, eaf_path)
+        
+        return merged_data
+    
     def _diarize_and_transcribe_separated_audio(self, separated_audios, sr):
         """
         Diarize and transcribe each separated audio.
@@ -369,7 +429,7 @@ def transcribe(audio_data, model_size="large", language=None):
     transcriber = WhisperTranscriber(model_size, language)
     return transcriber.transcribe(audio_data)
 
-def transcribe_file_with_diarization(audio_path, model_size="large", language=None):
+def transcribe_file_with_diarization(audio_path, output_prefix=None, model_size="large", language=None):
     """
     Diarize audio file and transcribe each speaker segment individually.
     
@@ -383,7 +443,7 @@ def transcribe_file_with_diarization(audio_path, model_size="large", language=No
         dict: Diarization data with transcribed text in each annotation
     """
     transcriber = DiarizedTranscriber(model_size, language)
-    return transcriber.transcribe_file_with_diarization(audio_path)
+    return transcriber.transcribe_file_with_diarization(audio_path, output_prefix)
 
 def chunk_audio(audio_tensor, chunk_length_seconds=10, overlap_seconds=1, sample_rate=8000):
     """
@@ -509,7 +569,7 @@ def merge_speaker_annotations(speaker_results, original_audio_path):
     pipeline = TranscriptionPipeline()
     return pipeline._merge_speaker_annotations(speaker_results, original_audio_path)
 
-def transcribe_with_asteroid_separation(audio_path, num_speakers=2, model_size="large", language=None):
+def transcribe_with_asteroid_separation(audio_path, num_speakers=2, output_prefix=None, model_size="large", language=None):
     """
     Complete pipeline: Separate speakers with Asteroid, diarize each, transcribe, and merge.
     
@@ -523,11 +583,10 @@ def transcribe_with_asteroid_separation(audio_path, num_speakers=2, model_size="
     Returns:
         dict: Merged annotation data with all speakers transcribed
     """
-    # Separation path removed; fallback to diarized transcription only
-    transcriber = DiarizedTranscriber(model_size, language)
-    return transcriber.transcribe_file_with_diarization(audio_path)
+    pipeline = TranscriptionPipeline(model_size, language)
+    return pipeline.transcribe_with_asteroid_separation(audio_path, num_speakers, output_prefix)
 
-def transcribe_with_speechbrain_sepformer_separation(audio_path, model_size="large", language=None):
+def transcribe_with_speechbrain_sepformer_separation(audio_path, output_prefix=None, model_size="large", language=None):
     """
     Complete pipeline using SpeechBrain SepformerSeparation: Separate speakers, diarize each, transcribe, and merge.
     
@@ -546,7 +605,7 @@ def transcribe_with_speechbrain_sepformer_separation(audio_path, model_size="lar
     print("Falling back to basic diarization and transcription...")
     
     transcriber = DiarizedTranscriber(model_size, language)
-    return transcriber.transcribe_file_with_diarization(audio_path)
+    return transcriber.transcribe_file_with_diarization(audio_path, output_prefix)
 
 if __name__ == "__main__":
     import sys
@@ -587,26 +646,26 @@ if __name__ == "__main__":
     #     print(f"Pipeline test failed: {e}")
     
     # Example 4: Test separation functionality directly
-    print("\n4. Testing separation functionality directly...")
-    try:
-        try:
-            from utils.separation import SpeakerSeparator
-        except ImportError:
-            from separation import SpeakerSeparator
-        separator = SpeakerSeparator()
-        print("SpeakerSeparator initialized successfully")
+    # print("\n4. Testing separation functionality directly...")
+    # try:
+    #     try:
+    #         from utils.separation import SpeakerSeparator
+    #     except ImportError:
+    #         from separation import SpeakerSeparator
+    #     separator = SpeakerSeparator()
+    #     print("SpeakerSeparator initialized successfully")
         
-        # Test Asteroid separation (if audio file exists)
-        try:
-            separated_audios, sr = separator.separate_speakers_asteroid("data/test2.wav", num_speakers=2)
-            print(f"Asteroid separation successful: {len(separated_audios)} speakers separated")
-        except FileNotFoundError:
-            print("Test file 'data/test2.wav' not found for separation test")
-        except Exception as e:
-            print(f"Asteroid separation test failed: {e}")
+    #     # Test Asteroid separation (if audio file exists)
+    #     try:
+    #         separated_audios, sr = separator.separate_speakers_asteroid("data/test2.wav", num_speakers=2)
+    #         print(f"Asteroid separation successful: {len(separated_audios)} speakers separated")
+    #     except FileNotFoundError:
+    #         print("Test file 'data/test2.wav' not found for separation test")
+    #     except Exception as e:
+    #         print(f"Asteroid separation test failed: {e}")
             
-    except Exception as e:
-        print(f"Separation functionality test failed: {e}")
+    # except Exception as e:
+    #     print(f"Separation functionality test failed: {e}")
     
-    print("\nClass-based transcription system with separated functionality ready!")
+    # print("\nClass-based transcription system with separated functionality ready!")
     
