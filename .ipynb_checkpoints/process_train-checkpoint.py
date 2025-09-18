@@ -46,8 +46,8 @@ Examples:
     parser.add_argument(
         "--model_name",
         type=str,
-        default="openai/whisper-small",
-        help="Hugging Face model name or path to local model (default: openai/whisper-small)"
+        default="openai/whisper-tiny",
+        help="Hugging Face model name or path to local model (default: openai/whisper-tiny)"
     )
     parser.add_argument(
         "--existing_model",
@@ -65,8 +65,8 @@ Examples:
     parser.add_argument(
         "--ref_key",
         type=str,
-        default="sentence",
-        help="Column name containing transcriptions in dataset (default: sentence)"
+        default="text",
+        help="Column name containing transcriptions in dataset (default: text)"
     )
 
     # Language parameters
@@ -80,7 +80,7 @@ Examples:
         "--language_code",
         type=str,
         default="el",
-        help="Language code for dataset (default: el)"
+        help="Language code for dataset configuration (default: el)"
     )
 
     # Output parameters
@@ -211,8 +211,21 @@ Examples:
         print("=" * 60)
         print("TRAINING COMPLETED SUCCESSFULLY!")
         print(f"Model saved to: {args.output_dir}")
+        
         if args.save_to_hf:
-            print("Model uploaded to Hugging Face Hub")
+            print("Uploading model to Hugging Face Hub...")
+            try:
+                # Set correct language code for upload
+                trainer.model.config.language = args.language_code
+                trainer.model.push_to_hub(
+                    args.output_dir.split('/')[-1],  # Use output dir name as repo name
+                    commit_message=f"Add Greek Whisper model trained on {args.dataset_name}"
+                )
+                print("✓ Model uploaded to Hugging Face Hub")
+            except Exception as e:
+                print(f"⚠ Failed to upload to Hugging Face Hub: {e}")
+                print("Model is still saved locally")
+        
         print("=" * 60)
 
     except KeyboardInterrupt:
