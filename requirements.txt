@@ -25,3 +25,5 @@ transformers>=4.20.0
 soundfile>=0.10.0
 scipy>=1.7.0
 pydub>=0.25.0
+
+onnxruntime

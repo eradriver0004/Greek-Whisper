@@ -215,10 +215,74 @@ Examples:
         if args.save_to_hf:
             print("Uploading model to Hugging Face Hub...")
             try:
-                # Set correct language code for upload
+                # Set correct language codes for upload
                 trainer.model.config.language = args.language_code
+                if hasattr(trainer.model.config, 'language_bcp47'):
+                    trainer.model.config.language_bcp47 = f"{args.language_code}-GR"
+                
+                # Create a proper model card
+                repo_name = args.output_dir.split('/')[-1]
+                model_card = f"""---
+language: {args.language_code}
+license: mit
+tags:
+- whisper
+- speech-recognition
+- greek
+- audio
+- automatic-speech-recognition
+pipeline_tag: automatic-speech-recognition
+---
+
+# {repo_name}
+
+Fine-tuned Whisper model for Greek speech recognition.
+
+## Model Details
+
+- **Language**: Greek ({args.language_code})
+- **Model Type**: Whisper (fine-tuned)
+- **Base Model**: {trainer.model.config.architectures[0] if hasattr(trainer.model.config, 'architectures') else 'WhisperForConditionalGeneration'}
+
+## Usage
+
+```python
+from transformers import WhisperProcessor, WhisperForConditionalGeneration
+import torch
+
+# Load model and processor
+processor = WhisperProcessor.from_pretrained("{repo_name}")
+model = WhisperForConditionalGeneration.from_pretrained("{repo_name}")
+
+# Load audio
+audio, sampling_rate = librosa.load("audio.wav", sr=16000)
+
+# Process audio
+input_features = processor(audio, sampling_rate=sampling_rate, return_tensors="pt").input_features
+
+# Generate transcription
+with torch.no_grad():
+    predicted_ids = model.generate(input_features)
+    transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
+
+print(transcription)
+```
+
+## Training Details
+
+This model was fine-tuned on Greek speech data using the Hugging Face Transformers library.
+
+## License
+
+MIT License
+"""
+                
+                # Save model card
+                with open(os.path.join(args.output_dir, "README.md"), "w", encoding="utf-8") as f:
+                    f.write(model_card)
+                
                 trainer.model.push_to_hub(
-                    args.output_dir.split('/')[-1],  # Use output dir name as repo name
+                    repo_name,
                     commit_message=f"Add Greek Whisper model trained on {args.dataset_name}"
                 )
                 print("✓ Model uploaded to Hugging Face Hub")

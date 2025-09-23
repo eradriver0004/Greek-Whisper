@@ -93,8 +93,11 @@ class WhisperASR:
         self.model.config.suppress_tokens = []
         
         # Set correct language code for Hugging Face Hub
-        if hasattr(self.model.config, 'language'):
-            self.model.config.language = self.language_code  # Use "el" instead of "Greek"
+        self.model.config.language = self.language_code  # Use "el" instead of "Greek"
+        
+        # Also set language_bcp47 for proper metadata
+        if hasattr(self.model.config, 'language_bcp47'):
+            self.model.config.language_bcp47 = f"{self.language_code}-GR"  # el-GR for Greek
         
         # Configure model for memory optimization
         if hasattr(self.model.config, 'use_cache'):
@@ -188,7 +191,7 @@ class WhisperASR:
             save_steps=SAVE_STEPS,
             eval_steps=EVAL_STEPS,
             logging_steps=LOGGING_STEPS,
-            report_to=[],  # Disable tensorboard to save memory
+            report_to=["tensorboard"],  # Disable tensorboard to save memory
             load_best_model_at_end=False,  # Disable to prevent gradient issues
             metric_for_best_model="wer",
             greater_is_better=False,
@@ -223,12 +226,22 @@ class WhisperASR:
         print("[INFO] Starting training...: ")
         trainer.train()
 
+        # Ensure correct language code before saving
+        self.model.config.language = self.language_code
+        if hasattr(self.model.config, 'language_bcp47'):
+            self.model.config.language_bcp47 = f"{self.language_code}-GR"
+        
         # training finished and save model to model directory
         print(f"[INFO] Training finished and model saved to {self.OUTPUT_DIR}")
 
         if self.save_to_hf:
+            # Ensure correct language code before uploading
+            self.model.config.language = self.language_code
+            if hasattr(self.model.config, 'language_bcp47'):
+                self.model.config.language_bcp47 = f"{self.language_code}-GR"
+            
             kwargs = {
-                "language": f"{self.language}",
+                "language": f"{self.language_code}",  # Use language_code instead of language
                 "model_name": f"Whisper - {self.language} Model",
                 "finetuned_from": f"{BASE_MODEL}",
                 "tasks": "automatic-speech-recognition",

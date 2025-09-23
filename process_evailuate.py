@@ -49,7 +49,15 @@ def main() -> int:
     if args.config:
         ds_kwargs["name"] = args.config
     print(f"Loading dataset: {args.dataset}, config={args.config}, split={args.split}")
-    dataset = load_dataset(args.dataset, split=args.split, **ds_kwargs)
+    try:
+        dataset = load_dataset(args.dataset, split=args.split, **ds_kwargs)
+    except ValueError as e:
+        # Fallback: retry without config if provided config doesn't exist
+        if args.config is not None and "BuilderConfig" in str(e):
+            print(f"Config '{args.config}' not found for {args.dataset}. Retrying without config...")
+            dataset = load_dataset(args.dataset, split=args.split)
+        else:
+            raise
     dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
 
     # Load metrics
